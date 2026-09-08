@@ -1,0 +1,27 @@
+[build-system]
+requires=["setuptools>=68","wheel"]
+build-backend="setuptools.build_meta"
+
+[project]
+name="rifthound"
+version="3.0.1"
+description="Evidence-gated bug-bounty hunting orchestrator and attack-chain correlation engine"
+readme="README.md"
+requires-python=">=3.10"
+authors=[{name="kdairatchi"}]
+license={text="MIT"}
+dependencies=["requests>=2.31","PyYAML>=6.0","rich>=13.7"]
+
+[project.optional-dependencies]
+dev=["pytest>=8","pytest-cov>=5"]
+
+[project.scripts]
+rifthound="rifthound.cli:main"
+
+[tool.setuptools.packages.find]
+where=["."]
+include=["rifthound*"]
+
+[tool.pytest.ini_options]
+testpaths=["tests"]
+addopts="-q"
