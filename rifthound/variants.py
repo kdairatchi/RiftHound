@@ -1,0 +1,13 @@
+from urllib.parse import urlparse,urlunparse,parse_qsl,urlencode,quote
+
+def origin_variants(origin):
+ p=urlparse(origin if '://' in origin else 'https://'+origin);h=p.hostname or origin;s=p.scheme or 'https'
+ return [{'name':'exact-control','value':f'{s}://{h}','purpose':'trusted baseline'},{'name':'sibling-subdomain','value':f'{s}://rh-probe.{h}','purpose':'site/suffix confusion'},{'name':'suffix-trap','value':f'{s}://{h}.attacker.invalid','purpose':'includes/endsWith weakness'},{'name':'trailing-dot','value':f'{s}://{h}.','purpose':'canonicalization'},{'name':'scheme-change','value':f'http://{h}','purpose':'scheme sensitivity'},{'name':'opaque-origin','value':'null','purpose':'manual sandbox/blob/data origin check'}]
+def redirect_variants(uri):
+ p=urlparse(uri);q=parse_qsl(p.query,keep_blank_values=True);base=urlunparse((p.scheme,p.netloc,p.path,p.params,p.query,''))
+ return [{'name':'exact-control','value':base,'purpose':'baseline'},{'name':'query-addition','value':urlunparse(p._replace(query=urlencode(q+[('rh','1')]),fragment='')),'purpose':'exact query binding'},{'name':'trailing-slash','value':urlunparse(p._replace(path=p.path.rstrip('/')+'/',fragment='')),'purpose':'path normalization'},{'name':'encoded-dot-segment','value':urlunparse(p._replace(path=p.path.rstrip('/')+'/%2e/',fragment='')),'purpose':'decode/canonicalization'}]
+def hpp_variants(param,a='A',b='B'):
+ k=quote(param,safe='');return [{'name':'single-a','value':f'{k}={a}','purpose':'baseline A'},{'name':'single-b','value':f'{k}={b}','purpose':'baseline B'},{'name':'a-then-b','value':f'{k}={a}&{k}={b}','purpose':'first/last/array parser'},{'name':'b-then-a','value':f'{k}={b}&{k}={a}','purpose':'order sensitivity'},{'name':'array-style','value':f'{k}[]={a}&{k}[]={b}','purpose':'framework array parsing'}]
+def content_type_variants(_=''):return [{'name':'form','value':'application/x-www-form-urlencoded','purpose':'form parser'},{'name':'json','value':'application/json','purpose':'JSON parser'},{'name':'text-json','value':'text/plain','purpose':'content-type enforcement'},{'name':'merge-patch','value':'application/merge-patch+json','purpose':'alternate JSON path'}]
+def cache_header_variants(marker='rh-canary'):return [{'name':'x-forwarded-host','header':'X-Forwarded-Host','value':marker+'.invalid','purpose':'canonical host influence'},{'name':'forwarded','header':'Forwarded','value':f'for=192.0.2.1;host={marker}.invalid;proto=https','purpose':'proxy canonicalization'},{'name':'x-original-url','header':'X-Original-URL','value':'/rh-'+marker,'purpose':'routing influence'}]
+FAMILIES={'origin':origin_variants,'redirect':redirect_variants,'hpp':hpp_variants,'content-type':content_type_variants,'cache-headers':cache_header_variants}
