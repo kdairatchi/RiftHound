@@ -1,0 +1,28 @@
+project:
+  output_dir: rifthound-work
+scope:
+  roots: []
+  exclude_hosts: []
+  exclude_regex: []
+http:
+  threads: 5
+  rps: 6
+  timeout: 15
+  proxy: ""
+  headers: []
+recon:
+  depth: 3
+  max_urls: 50000
+validation:
+  cross_tool_quorum: 2
+  allow_oast: false
+  oast_domain: ""
+  allow_nuclei_ai: false
+nuclei:
+  automatic_scan: true
+  severity: info,low,medium,high,critical
+  exclude_tags: dos,fuzz,intrusive
+  ai:
+    enabled: false
+    max_prompts: 3
+    prompts: [reflection, cors, oauth-metadata]
