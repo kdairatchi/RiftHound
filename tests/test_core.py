@@ -2,6 +2,7 @@ from rifthound.steps import STEP_CATALOG
 from rifthound.presets import PRESETS
 from rifthound.chains import RULES,generate
 from rifthound.scope import host_in_roots,url_in_scope,normalize_url
+from rifthound.tools import ToolInfo
 
 def test_steps_001_130():
  assert len(STEP_CATALOG)==130
@@ -22,3 +23,7 @@ def test_chain_catalog():
  inv={'app.example.com':{'surfaces':['postmessage','oauth'],'examples':{}}}
  ids={x['id'] for x in generate(inv,[])}
  assert 'RH-CHAIN-000' in ids
+
+def test_tool_info_defaults():
+ info=ToolInfo('example',None,False)
+ assert info.note=='' and not info.deprecated

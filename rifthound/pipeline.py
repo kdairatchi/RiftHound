@@ -10,6 +10,7 @@ from .evidence import read_jsonl,parse_kxss,parse_gxss,parse_dalfox,parse_nuclei
 from .chains import generate
 from .reporting import write_html,write_markdown
 from .ai_prompts import PROMPTS
+from .correlation import nmap_services,searchsploit_results,metasploit_query
 
 class Pipeline:
  def __init__(self,cfg,ui,dry_run=False):
@@ -30,6 +31,24 @@ class Pipeline:
    x=x.strip()
    if x and x not in s:s.add(x);seen.append(x)
   Path(p).write_text('\n'.join(seen)+('\n' if seen else ''));return seen
+ def bbot_results(self, directory):
+  """Extract only in-scope hosts and URLs from BBOT's JSON event output."""
+  hosts=set();urls=set()
+  for path in Path(directory).rglob('*.json'):
+   try: payload=json.loads(path.read_text(errors='replace'))
+   except (OSError,json.JSONDecodeError):
+    try: payload=[json.loads(line) for line in path.read_text(errors='replace').splitlines() if line.strip()]
+    except (OSError,json.JSONDecodeError): continue
+   for event in payload if isinstance(payload,list) else [payload]:
+    data=event.get('data',event) if isinstance(event,dict) else event
+    values=[data] if isinstance(data,str) else [data.get(k,'') for k in ('url','host') if isinstance(data,dict)]
+    for value in values:
+     url=normalize_url(value) if isinstance(value,str) and '://' in value else None
+     host=normalize_host(urlparse(url).hostname) if url else normalize_host(value if isinstance(value,str) else '')
+     if host and host_in_roots(host,self.roots):
+      hosts.add(host)
+      if url and self.allowed(url): urls.add(url)
+  return hosts,urls
  def phase1(self,seeds):
   self.ui.phase(1,'Recon & Surface Inventory','subfinder/amass/httpx/katana/gau + scope normalization')
   domains=set(self.roots)
@@ -41,6 +60,18 @@ class Pipeline:
     _,so,_=self.run_cmd('subfinder-'+root,[which_tool('subfinder'),'-d',root,'-silent']);domains.update(so.splitlines())
    if which_tool('amass'):
     _,so,_=self.run_cmd('amass-'+root,[which_tool('amass'),'enum','-passive','-d',root]);domains.update(so.splitlines())
+  bbot_cfg=self.cfg['recon'].get('bbot',{})
+  bbot_urls=set()
+  bbot=inspect_tool('bbot')
+  if bbot_cfg.get('enabled') and bbot.ready:
+   for root in self.roots:
+    output=self.art/'bbot'/root
+    cmd=[bbot.path,'-t',root,'-f',bbot_cfg.get('preset','subdomain-enum'),'-om','json','-o',str(output),'-y']
+    for flag in bbot_cfg.get('require_flags',['passive']): cmd.extend(['-rf',flag])
+    self.run_cmd('bbot-'+root,cmd,timeout=3600)
+    found_hosts,found_urls=self.bbot_results(output);domains.update(found_hosts);bbot_urls.update(found_urls)
+  elif bbot_cfg.get('enabled'):
+   self.ui.warn('BBOT requested but not ready; run rifthound doctor for repair guidance')
   self.subdomains=sorted({normalize_host(d) for d in domains if normalize_host(d) and (not self.roots or host_in_roots(d,self.roots))});self.write_lines(self.art/'subdomains.txt',self.subdomains)
   live=[];hi=inspect_tool('httpx')
   if hi.ready and self.subdomains:
@@ -51,6 +82,7 @@ class Pipeline:
      except:continue
      if u and self.allowed(u):live.append(u)
   if not live:live=['https://'+d for d in self.subdomains]
+  live.extend(bbot_urls)
   self.write_lines(self.art/'live.txt',live);self.urls.extend(live)
   if which_tool('katana') and live:
    _,so,_=self.run_cmd('katana',[which_tool('katana'),'-list',str(self.art/'live.txt'),'-silent','-d',str(self.cfg['recon'].get('depth',3)),'-jc','-kf','robotstxt,sitemapxml']);self.urls.extend(so.splitlines())
@@ -76,18 +108,45 @@ class Pipeline:
    _,so,_=self.run_cmd('kxss',[which_tool('kxss')],stdin='\n'.join(parameterized)+'\n');(self.art/'kxss.txt').write_text(so)
   if which_tool('gxss') and parameterized:
    self.ui.warn('Gxss is legacy/archived; corroborator only');_,so,_=self.run_cmd('gxss',[which_tool('gxss'),'-p','RIFTHOUND','-c','20'],stdin='\n'.join(parameterized)+'\n');(self.art/'gxss.txt').write_text(so)
+  if which_tool('fallparams') and self.urls:
+   # FallParams enriches the local parameter corpus.  It receives the already
+   # scope-filtered URL list and does not enable its own crawl/headless modes.
+   output=self.art/'fallparams.txt'
+   self.run_cmd('fallparams',[which_tool('fallparams'),'-u',str(self.art/'urls.txt'),'-o',str(output),'-silent','-duc'])
   self.native('discovery',{'reflection','dom','headers','oauth'})
  def native(self,name,mods):
   h={}
   for item in self.cfg['http'].get('headers',[]):
    if ':' in item:k,v=item.split(':',1);h[k.strip()]=v.strip()
   e=Engine(self.urls,h,self.cfg['http'].get('proxy',''),self.cfg['http'].get('timeout',15),self.cfg['http'].get('threads',5),self.cfg['http'].get('rps',6),self.cfg['http'].get('verify_tls',False));rows=[] if self.dry else e.run(mods);p=self.art/f'core-{name}.jsonl';p.write_text('\n'.join(json.dumps(x) for x in rows)+('\n' if rows else ''));(self.art/f'fingerprints-{name}.json').write_text(json.dumps(e.inventory,indent=2)+'\n')
+ def service_correlation(self):
+  cfg=self.cfg['recon'].get('service_correlation',{}); out=self.art/'service-correlation';out.mkdir(exist_ok=True)
+  if not (which_tool('naabu') and which_tool('nmap')): self.ui.warn('Service correlation needs both naabu and nmap');return
+  ports=out/'naabu.jsonl';self.run_cmd('naabu',[which_tool('naabu'),'-l',str(self.art/'subdomains.txt'),'-top-ports',str(cfg.get('top_ports',100)),'-json','-silent','-o',str(ports)],timeout=3600)
+  open_ports={}
+  for row in read_jsonl(ports):
+   host=normalize_host(row.get('host',''));port=row.get('port')
+   if host and host_in_roots(host,self.roots) and isinstance(port,int):open_ports.setdefault(host,[]).append(port)
+  services=[]
+  for host,port_list in open_ports.items():
+   report=out/(host.replace(':','_')+'.xml');self.run_cmd('nmap-'+host,[which_tool('nmap'),'-sV','--version-light','-Pn','--open','-p',','.join(map(str,sorted(set(port_list)))),'-oX',str(report),host],timeout=1800);services.extend(nmap_services(report))
+  matches=[];msf=[]
+  for service in services:
+   query=metasploit_query(service)
+   if not query: continue
+   if which_tool('searchsploit'):
+    _,stdout,_=self.run_cmd('searchsploit-'+query,[which_tool('searchsploit'),'-j','-t',query],timeout=60)
+    for hit in searchsploit_results(stdout): matches.append({**service,'query':query,**hit})
+   if cfg.get('metasploit_search',True) and which_tool('msfconsole'):
+    _,stdout,_=self.run_cmd('metasploit-search-'+query,[which_tool('msfconsole'),'-q','-x',f'search type:exploit {query}; exit'],timeout=120);msf.append({'query':query,'output':stdout[:12000]})
+  report={'disclaimer':'Version and catalog matches are triage leads only. Confirm exact version, reachability, scope, and harmless impact before reporting. No exploit was executed or copied.','services':services,'searchsploit_matches':matches,'metasploit_searches':msf};(out/'version-correlation.json').write_text(json.dumps(report,indent=2)+'\n')
  def phase3(self,ai=False):
   self.ui.phase(3,'Validation & FP Control','native differentials + Dalfox/Nuclei corroboration')
   mods={'reflection','dom','headers','oauth','cors','redirect'}
   preset=self.cfg.get('preset','balanced')
   if preset in {'server','deep','full'}:mods|={'sqli','ssti','crlf'}
   self.native('validation',mods)
+  if self.cfg['recon'].get('service_correlation',{}).get('enabled'):self.service_correlation()
   param=self.art/'parameterized.txt'
   if which_tool('dalfox') and param.exists() and param.stat().st_size:
    self.run_cmd('dalfox',[which_tool('dalfox'),'scan',str(param),'--format','jsonl','--output',str(self.art/'dalfox.jsonl')],timeout=3600)

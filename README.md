@@ -1,9 +1,9 @@
 # RiftHound v3
 
-**Evidence-gated bug-bounty hunting, validation and attack-chain correlation.**  
+**A practical, evidence-first companion for authorized bug-bounty research.** It gathers leads, keeps the supporting artifacts together, and makes it clear what still needs to be proven.  
 Author: **kdairatchi**
 
-RiftHound is an authorized-security research framework that orchestrates recon tools, native differential checks, browser/API fingerprints, external corroborators, false-positive gates and chain hypotheses.
+RiftHound is an authorized-security research framework that connects recon tools, careful differential checks, browser/API fingerprints, external corroboration, false-positive gates, and chain hypotheses. A lead is never presented as a confirmed vulnerability just because a scanner recognized a pattern.
 
 ```text
 AUTHORIZED SCOPE
@@ -52,6 +52,22 @@ rifthound https://site.example.com -p wordpress
 RiftHound detects and uses tools when installed:
 
 `subfinder`, `amass`, ProjectDiscovery `httpx`, `katana`, `gau`, `waymore`, `uro`, `gf`, `kxss`, `Gxss`, `dalfox`, `arjun`, `fallparams`, `nuclei`, `rg`, `curl`, `jq`.
+
+BBOT is an optional, opt-in recon adapter. It runs only the `subdomain-enum` preset with BBOT's `passive` module requirement and consumes only in-scope JSON results:
+
+```bash
+rifthound example.com --bbot
+```
+
+## Service versions and CVE research
+
+For an explicitly authorized scope, opt into a bounded service pass:
+
+```bash
+rifthound example.com --service-correlation -p balanced
+```
+
+This uses Naabu's top 100 ports, then runs Nmap `-sV --version-light` only on observed open ports. It searches the local Searchsploit and Metasploit catalogs for the observed product/version strings. Results are written to `artifacts/service-correlation/version-correlation.json` as **triage leads**. No exploit module, payload, or public PoC is run or copied; exact version, exposure, scope, and controlled impact must still be validated.
 
 Run:
 

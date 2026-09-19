@@ -25,3 +25,6 @@ include=["rifthound*"]
 [tool.pytest.ini_options]
 testpaths=["tests"]
 addopts="-q"
+# The system `pytest` console script starts from its own bin directory on some
+# distributions.  Keep source-tree test runs independent of an editable install.
+pythonpath=["."]
