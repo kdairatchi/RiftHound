@@ -74,6 +74,9 @@ class Pipeline:
   elif bbot_cfg.get('enabled'):
    self.ui.warn('BBOT requested but not ready; run rifthound doctor for repair guidance')
   self.subdomains=sorted({normalize_host(d) for d in domains if normalize_host(d) and (not self.roots or host_in_roots(d,self.roots))});self.write_lines(self.art/'subdomains.txt',self.subdomains)
+  recon=self.cfg.get('recon',{})
+  if recon.get('dnsx',{}).get('enabled') and which_tool('dnsx') and self.subdomains:
+   self.run_cmd('dnsx',[which_tool('dnsx'),'-l',str(self.art/'subdomains.txt'),'-a','-json','-silent','-duc','-o',str(self.art/'dnsx.jsonl')],timeout=1800)
   live=[];hi=inspect_tool('httpx')
   if hi.ready and self.subdomains:
    out=self.art/'httpx.jsonl';cmd=[hi.path,'-l',str(self.art/'subdomains.txt'),'-silent','-j','-sc','-ct','-title','-server','-td','-cdn','-location','-o',str(out)];self.run_cmd('httpx',cmd)
@@ -90,6 +93,10 @@ class Pipeline:
   if which_tool('gau'):
    for root in self.roots:
     _,so,_=self.run_cmd('gau-'+root,[which_tool('gau'),'--subs',root]);self.urls.extend(so.splitlines())
+  if recon.get('waymore',{}).get('enabled') and which_tool('waymore'):
+   for root in self.roots:
+    output=self.art/(f'waymore-{root}.txt');self.run_cmd('waymore-'+root,[which_tool('waymore'),'-i',root,'-mode','U','-oU',str(output),'-nlf'],timeout=3600)
+    if output.exists():self.urls.extend(output.read_text(errors='replace').splitlines())
   scoped=[];seen=set();limit=int(self.cfg['recon'].get('max_urls',50000))
   for x in self.urls:
    n=normalize_url(x)
@@ -114,6 +121,11 @@ class Pipeline:
    # scope-filtered URL list and does not enable its own crawl/headless modes.
    output=self.art/'fallparams.txt'
    self.run_cmd('fallparams',[which_tool('fallparams'),'-u',str(self.art/'urls.txt'),'-o',str(output),'-silent','-duc'])
+  if self.cfg.get('recon',{}).get('arjun',{}).get('enabled') and which_tool('arjun') and self.urls:
+   self.run_cmd('arjun',[which_tool('arjun'),'-i',str(self.art/'urls.txt'),'-o',str(self.art/'arjun.json'),'-q','-t',str(self.cfg['http'].get('threads',5)),'-T',str(self.cfg['http'].get('timeout',15)),'--rate-limit',str(self.cfg['http'].get('rps',6))],timeout=3600)
+  if which_tool('uro') and self.urls:
+   _,normalized,_=self.run_cmd('uro',[which_tool('uro')],stdin='\n'.join(self.urls)+'\n',timeout=300)
+   if normalized:self.urls=self.write_lines(self.art/'urls-uro.txt',normalized.splitlines());self.write_lines(self.art/'urls.txt',self.urls)
   if self.cfg.get('recon',{}).get('jsattack',{}).get('enabled') and which_tool('jsattack') and self.urls:
    output=self.art/'jsattack';cmd=[which_tool('jsattack'),'analyze','--list',str(self.art/'urls.txt'),'--depth','0','--out',str(output),'--threads',str(self.cfg['http'].get('threads',5)),'--rate',str(self.cfg['http'].get('rps',6)),'--timeout',str(self.cfg['http'].get('timeout',15)),'--silent']
    self.run_cmd('jsattack',cmd,timeout=3600)

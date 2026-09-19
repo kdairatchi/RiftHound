@@ -37,7 +37,7 @@ def run_capture(cmd:list[str],stdin:str|None=None,timeout:float=900,cwd:str|None
 def help_blob(path:str):
     for arg in ('-h','--help','-version','--version'):
         rc,so,se=run_capture([path,arg],timeout=15)
-        if rc != 127 and (so+se).strip(): return (so+'\n'+se)
+        if rc not in {126,127} and (so+se).strip(): return (so+'\n'+se)
     return ''
 
 def inspect_tool(name:str)->ToolInfo:
@@ -54,6 +54,8 @@ def inspect_tool(name:str)->ToolInfo:
         if not ready: note='binary-name collision: not ProjectDiscovery httpx'
     if name=='bbot' and not blob:
         ready=False; note='BBOT did not start; repair or reinstall its Python environment'
+    if name=='uro' and not blob:
+        ready=False; note='URO did not start; repair or reinstall its Python environment'
     if name=='gxss': dep=True; note='legacy/archived upstream; corroborator only'
     if name=='nuclei' and '-ai' not in blob: note='AI prompt flag not detected'
     return ToolInfo(name,p,ready,m.group(1) if m else None,note,dep)

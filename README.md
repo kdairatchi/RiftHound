@@ -69,6 +69,17 @@ rifthound example.com --jsattack -p balanced
 
 It runs `jsattack analyze` with crawl depth `0`; active JSAttack probes are not enabled. Add `--verbose` to any hunt to show each subprocess exit code, output sizes, and its saved log paths. `--quiet` remains available for script-friendly output.
 
+## Extra recon adapters
+
+These installed tools are opt-in so you can match their traffic to the program rules:
+
+```bash
+rifthound example.com --dnsx --waymore
+rifthound example.com --arjun
+```
+
+DNSX resolves the discovered host list. Waymore collects historical URLs and filters them through scope before use. Arjun performs active parameter discovery, so enable it only where that request volume is allowed. URO is used automatically for local URL reduction when its executable is healthy.
+
 ## Service versions and CVE research
 
 For an explicitly authorized scope, opt into a bounded service pass:
