@@ -7,7 +7,7 @@ DEFAULT={
 'project':{'name':'hunt','output_dir':'rifthound-work','author':'kdairatchi'},
 'scope':{'roots':[],'include_hosts':[],'exclude_hosts':[],'exclude_regex':[],'require_https':False},
 'http':{'headers':[],'proxy':'','timeout':15,'verify_tls':False,'threads':5,'rps':6},
-'recon':{'depth':3,'max_urls':50000,'bbot':{'enabled':False,'preset':'subdomain-enum','require_flags':['passive']},'service_correlation':{'enabled':False,'top_ports':100,'metasploit_search':True}},
+'recon':{'depth':3,'max_urls':50000,'bbot':{'enabled':False,'preset':'subdomain-enum','require_flags':['passive']},'service_correlation':{'enabled':False,'top_ports':100,'metasploit_search':True,'nmap_vuln':False}},
 'validation':{'cross_tool_quorum':2,'allow_oast':False,'oast_domain':'','allow_nuclei_ai':False},
 'nuclei':{'automatic_scan':True,'severity':'info,low,medium,high,critical','exclude_tags':'dos,fuzz,intrusive','ai':{'enabled':False,'prompts':['reflection','cors','oauth-metadata'],'max_prompts':3}},
 'evidence':{'html_report':True,'markdown_report':True,'redact':True},

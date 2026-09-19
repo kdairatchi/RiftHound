@@ -1,6 +1,6 @@
 from rifthound import tools
 from rifthound.pipeline import Pipeline
-from rifthound.correlation import nmap_services, metasploit_query, searchsploit_results
+from rifthound.correlation import nmap_services, nmap_vulnerability_candidates, metasploit_query, searchsploit_results
 
 
 def test_httpx_collision_is_not_ready(monkeypatch):
@@ -83,3 +83,11 @@ def test_version_correlation_parsers(tmp_path):
     assert services[0]['label']=='nginx 1.24.0'
     assert metasploit_query(services[0])=='nginx 1.24.0'
     assert searchsploit_results('{"RESULTS_EXPLOIT":[{"EDB-ID":"1","Title":"Example","Path":"x"}]}')[0]['edb_id']=='1'
+
+
+def test_nmap_vulnerability_candidates_are_not_validated(tmp_path):
+    report=tmp_path/'vuln.xml'
+    report.write_text('<nmaprun><host><address addr="203.0.113.10" addrtype="ipv4"/><ports><port portid="443"><script id="http-vuln-cve2021" output="Possible CVE-2021-12345"/></port></ports></host></nmaprun>')
+    candidate=nmap_vulnerability_candidates(report)[0]
+    assert candidate['confidence']=='candidate'
+    assert candidate['cves']==['CVE-2021-12345']

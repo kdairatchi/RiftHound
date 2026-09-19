@@ -10,7 +10,7 @@ from .evidence import read_jsonl,parse_kxss,parse_gxss,parse_dalfox,parse_nuclei
 from .chains import generate
 from .reporting import write_html,write_markdown
 from .ai_prompts import PROMPTS
-from .correlation import nmap_services,searchsploit_results,metasploit_query
+from .correlation import nmap_services,nmap_vulnerability_candidates,searchsploit_results,metasploit_query
 
 class Pipeline:
  def __init__(self,cfg,ui,dry_run=False):
@@ -130,6 +130,10 @@ class Pipeline:
   services=[]
   for host,port_list in open_ports.items():
    report=out/(host.replace(':','_')+'.xml');self.run_cmd('nmap-'+host,[which_tool('nmap'),'-sV','--version-light','-Pn','--open','-p',','.join(map(str,sorted(set(port_list)))),'-oX',str(report),host],timeout=1800);services.extend(nmap_services(report))
+  vuln_candidates=[]
+  if cfg.get('nmap_vuln'):
+   for host,port_list in open_ports.items():
+    report=out/(host.replace(':','_')+'-vuln.xml');cmd=[which_tool('nmap'),'-sV','--version-light','--script','vuln and not (intrusive or exploit or dos or brute)','--script-timeout','30s','-Pn','--open','-p',','.join(map(str,sorted(set(port_list)))),'-oX',str(report),host];self.run_cmd('nmap-vuln-'+host,cmd,timeout=1800);vuln_candidates.extend(nmap_vulnerability_candidates(report))
   matches=[];msf=[]
   for service in services:
    query=metasploit_query(service)
@@ -139,7 +143,7 @@ class Pipeline:
     for hit in searchsploit_results(stdout): matches.append({**service,'query':query,**hit})
    if cfg.get('metasploit_search',True) and which_tool('msfconsole'):
     _,stdout,_=self.run_cmd('metasploit-search-'+query,[which_tool('msfconsole'),'-q','-x',f'search type:exploit {query}; exit'],timeout=120);msf.append({'query':query,'output':stdout[:12000]})
-  report={'disclaimer':'Version and catalog matches are triage leads only. Confirm exact version, reachability, scope, and harmless impact before reporting. No exploit was executed or copied.','services':services,'searchsploit_matches':matches,'metasploit_searches':msf};(out/'version-correlation.json').write_text(json.dumps(report,indent=2)+'\n')
+  report={'disclaimer':'Version, catalog, and Nmap NSE matches are triage leads only. Confirm exact version, reachability, scope, and harmless impact before reporting. Exploit, intrusive, DoS, and brute-force NSE categories are excluded; no exploit was executed or copied.','services':services,'nmap_vulnerability_candidates':vuln_candidates,'searchsploit_matches':matches,'metasploit_searches':msf};(out/'version-correlation.json').write_text(json.dumps(report,indent=2)+'\n')
  def phase3(self,ai=False):
   self.ui.phase(3,'Validation & FP Control','native differentials + Dalfox/Nuclei corroboration')
   mods={'reflection','dom','headers','oauth','cors','redirect'}

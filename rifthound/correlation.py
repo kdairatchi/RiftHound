@@ -31,6 +31,25 @@ def nmap_services(path: Path) -> list[dict]:
     return rows
 
 
+def nmap_vulnerability_candidates(path: Path) -> list[dict]:
+    """Extract NSE script observations; they remain unvalidated candidates."""
+    if not path.exists():
+        return []
+    try:
+        root = ET.parse(path).getroot()
+    except ET.ParseError:
+        return []
+    rows = []
+    for host in root.findall('host'):
+        address = next((a.get('addr', '') for a in host.findall('address') if a.get('addrtype') in {'ipv4', 'ipv6'}), '')
+        for port in host.findall('./ports/port'):
+            for script in port.findall('script'):
+                output = script.get('output', '').strip()
+                if output:
+                    rows.append({'host': address, 'port': int(port.get('portid', '0')), 'script': script.get('id', ''), 'output': output[:12000], 'cves': sorted(set(re.findall(r'CVE-\d{4}-\d{4,}', output, re.I))), 'confidence': 'candidate'})
+    return rows
+
+
 def searchsploit_results(text: str) -> list[dict]:
     """Parse Searchsploit JSON without treating a database match as a finding."""
     try:

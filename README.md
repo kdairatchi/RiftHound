@@ -69,6 +69,14 @@ rifthound example.com --service-correlation -p balanced
 
 This uses Naabu's top 100 ports, then runs Nmap `-sV --version-light` only on observed open ports. It searches the local Searchsploit and Metasploit catalogs for the observed product/version strings. Results are written to `artifacts/service-correlation/version-correlation.json` as **triage leads**. No exploit module, payload, or public PoC is run or copied; exact version, exposure, scope, and controlled impact must still be validated.
 
+To also run Nmap's non-intrusive vulnerability scripts on those same observed ports:
+
+```bash
+rifthound example.com --nmap-vuln -p balanced
+```
+
+Scripts tagged `exploit`, `intrusive`, `dos`, or `brute` are excluded. Their output is still a candidate, not confirmation.
+
 Run:
 
 ```bash
