@@ -6,7 +6,7 @@ from .tools import which_tool, run_capture, inspect_tool
 from .scope import normalize_url,url_in_scope,host_in_roots,normalize_host
 from .fingerprints import scan_urls,consume_httpx_jsonl
 from .core_engine import Engine
-from .evidence import read_jsonl,parse_kxss,parse_gxss,parse_dalfox,parse_nuclei,parse_gf_leads,aggregate
+from .evidence import read_jsonl,parse_kxss,parse_gxss,parse_dalfox,parse_nuclei,parse_gf_leads,parse_jsattack,parse_arjun,aggregate
 from .chains import generate
 from .reporting import write_html,write_markdown
 from .ai_prompts import PROMPTS
@@ -186,7 +186,7 @@ class Pipeline:
   for p in [self.art/'core-discovery.jsonl',self.art/'core-validation.jsonl']:rows+=read_jsonl(p)
   if (self.art/'kxss.txt').exists():rows+=parse_kxss((self.art/'kxss.txt').read_text())
   if (self.art/'gxss.txt').exists():rows+=parse_gxss((self.art/'gxss.txt').read_text())
-  rows+=parse_gf_leads(self.art/'gf');rows+=parse_dalfox(self.art/'dalfox.jsonl');rows+=parse_nuclei(self.art/'nuclei.jsonl')
+  rows+=parse_gf_leads(self.art/'gf');rows+=parse_arjun(self.art/'arjun.json');rows+=parse_jsattack(self.art/'jsattack'/'report.json');rows+=parse_dalfox(self.art/'dalfox.jsonl');rows+=parse_nuclei(self.art/'nuclei.jsonl')
   ranked=aggregate(rows,int(self.cfg['validation'].get('cross_tool_quorum',2)));(self.out/'evidence-ledger.json').write_text(json.dumps(ranked,indent=2)+'\n')
   fps={}
   for p in [self.art/'fingerprints-passive.json',self.art/'fingerprints-discovery.json',self.art/'fingerprints-validation.json']:

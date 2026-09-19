@@ -50,6 +50,32 @@ def parse_gf_leads(directory):
   for url in path.read_text(errors='replace').splitlines():
    if url.startswith(('http://','https://')):out.append({'family':family,'title':f'GF {pattern} route candidate','url':url,'parameter':'','confidence':'candidate','tools':['gf'],'score':17,'evidence_gate':['Confirm the selected parameter reaches the relevant server-side or client-side sink','Use a harmless, family-specific control; do not claim impact from pattern selection alone'],'negative_controls':['nearby unrelated parameter','stable baseline','fresh session where applicable']})
  return out
+def parse_jsattack(path):
+ """Import JSAttack categories as surfaces without copying sensitive values."""
+ try:data=json.loads(Path(path).read_text(errors='replace'))
+ except (OSError,json.JSONDecodeError):return []
+ out=[]
+ for category in ('endpoints','sinks','postmessage_listeners','postmessage_sends','generic_findings','secrets'):
+  items=data.get(category,[]) if isinstance(data,dict) else []
+  if not isinstance(items,list):items=[items]
+  for item in items:
+   url=item.get('url','') if isinstance(item,dict) else item if isinstance(item,str) else ''
+   if not isinstance(url,str) or not url.startswith(('http://','https://')):continue
+   family='POSTMESSAGE' if category.startswith('postmessage') else 'CLIENT'
+   out.append({'family':family,'title':f'JSAttack {category.replace("_"," ")} surface','url':url,'parameter':'','confidence':'surface','tools':['jsattack'],'score':10,'evidence_gate':['Confirm attacker control and a security-relevant sink or exposure','Do not include secret values in reports; verify ownership and impact separately'],'negative_controls':['Compare a non-sensitive route','Confirm the source location and context']})
+ return out
+def parse_arjun(path):
+ """Record discovered parameter names as input-surface leads, not vulnerabilities."""
+ try:data=json.loads(Path(path).read_text(errors='replace'))
+ except (OSError,json.JSONDecodeError):return []
+ out=[]
+ if isinstance(data,dict):
+  for url,params in data.items():
+   if not isinstance(url,str) or not url.startswith(('http://','https://')):continue
+   names=params if isinstance(params,list) else params.get('params',[]) if isinstance(params,dict) else []
+   for name in names:
+    if isinstance(name,str):out.append({'family':'INPUT','title':'Arjun parameter discovery','url':url,'parameter':name,'confidence':'surface','tools':['arjun'],'score':8,'evidence_gate':['Confirm the parameter is accepted and changes a controlled response','Classify its server-side or client-side use before testing a vulnerability class'],'negative_controls':['Unknown parameter','benign neighboring parameter']})
+ return out
 def aggregate(rows,quorum=2):
  groups=defaultdict(list)
  for r in rows:groups[_key(r)].append(r)

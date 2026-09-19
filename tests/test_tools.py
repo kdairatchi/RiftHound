@@ -1,7 +1,7 @@
 from rifthound import tools
 from rifthound.pipeline import Pipeline
 from rifthound.correlation import nmap_services, nmap_vulnerability_candidates, metasploit_query, searchsploit_results
-from rifthound.evidence import parse_gf_leads
+from rifthound.evidence import parse_gf_leads, parse_jsattack, parse_arjun
 
 
 def test_httpx_collision_is_not_ready(monkeypatch):
@@ -129,3 +129,11 @@ def test_gf_command_injection_routes_are_leads_only(tmp_path):
     assert lead['family']=='CMDI'
     assert lead['confidence']=='candidate'
     assert lead['tools']==['gf']
+
+
+def test_jsattack_and_arjun_import_safe_leads(tmp_path):
+    js=tmp_path/'report.json';js.write_text('{"sinks":[{"url":"https://app.example.com/app.js"}],"secrets":[{"url":"https://app.example.com/app.js","value":"do-not-copy"}]}')
+    arjun=tmp_path/'arjun.json';arjun.write_text('{"https://app.example.com/search":["query"]}')
+    js_rows=parse_jsattack(js)
+    assert len(js_rows)==2 and all('value' not in row for row in js_rows)
+    assert parse_arjun(arjun)[0]['parameter']=='query'

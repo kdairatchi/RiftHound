@@ -69,6 +69,8 @@ rifthound example.com --jsattack -p balanced
 
 It runs `jsattack analyze` with crawl depth `0`; active JSAttack probes are not enabled. Add `--verbose` to any hunt to show each subprocess exit code, output sizes, and its saved log paths. `--quiet` remains available for script-friendly output.
 
+JSAttack endpoint, sink, postMessage, and generic categories are added to the evidence ledger as surfaces. Secret values are never copied into RiftHound reports. When enabled, Arjun parameter discoveries are also added as input-surface leads; neither source is treated as a vulnerability without controlled validation.
+
 ## Extra recon adapters
 
 These installed tools are opt-in so you can match their traffic to the program rules:
