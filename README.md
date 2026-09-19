@@ -47,6 +47,16 @@ rifthound https://site.example.com -p wordpress
 
 `passive`, `quick`, `balanced`, `deep`, `full`, `xss`, `client`, `api`, `auth`, `cache`, `server`, `wordpress`.
 
+## Full authorized pass
+
+For an explicitly authorized program scope, the `full` command enables all four RiftHound phases and every implemented reconnaissance and evidence adapter in one invocation:
+
+```bash
+rifthound full example.com -o output/example.com -v
+```
+
+It enables BBOT passive enumeration, DNSX, Waymore, Arjun, JSAttack static analysis, service/version correlation, and non-intrusive Nmap vulnerability scripts. Add `--reconner-output /path/to/target` to include an existing Reconner artifact directory. It does not execute exploits, brute force, or destructive checks; findings remain evidence-gated leads for controlled validation.
+
 ## External adapters
 
 RiftHound detects and uses tools when installed:

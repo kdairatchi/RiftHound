@@ -13,13 +13,19 @@ from .packs import PACKS
 from .steps import STEP_CATALOG
 from .variants import FAMILIES
 
+# ``full`` is deliberately explicit: it enables every implemented collection and
+# correlation adapter, but it does not run exploits, brute force, or destructive
+# checks.  Those remain a separate, operator-controlled validation decision.
+FULL_HUNT_FLAGS=['-p','full','--all','--bbot','--dnsx','--waymore','--arjun','--jsattack','--service-correlation','--nmap-vuln']
+
 def parser():
  p=argparse.ArgumentParser(prog='rifthound',description='RiftHound — evidence-gated bug-bounty hunting framework by kdairatchi');p.add_argument('--version',action='version',version=f'RiftHound {__version__}');s=p.add_subparsers(dest='cmd')
  h=s.add_parser('hunt');h.add_argument('targets',nargs='*');h.add_argument('-d','--domain',action='append',default=[]);h.add_argument('-l','--urls');h.add_argument('--reconner-output',help='import scoped URLs from a Reconner output directory');h.add_argument('-p','--preset',choices=sorted(PRESETS),default='balanced');h.add_argument('-c','--config');h.add_argument('-o','--out');h.add_argument('--phase',action='append',type=int,choices=[1,2,3,4]);h.add_argument('--all',action='store_true');h.add_argument('--ai',action='store_true');h.add_argument('--ai-prompt',action='append',default=[]);h.add_argument('--oast');h.add_argument('--proxy');h.add_argument('-H','--header',action='append',default=[]);h.add_argument('-t','--threads',type=int);h.add_argument('--rps',type=float);h.add_argument('--quorum',type=int);h.add_argument('--exclude-host',action='append',default=[]);h.add_argument('--exclude-regex',action='append',default=[]);h.add_argument('--recon-depth',type=int);h.add_argument('--max-urls',type=int);h.add_argument('--dnsx',action='store_true',help='resolve discovered subdomains with DNSX');h.add_argument('--waymore',action='store_true',help='collect historical URLs with Waymore');h.add_argument('--arjun',action='store_true',help='run opt-in Arjun parameter discovery');h.add_argument('--bbot',action='store_true',help='enable BBOT passive subdomain enumeration');h.add_argument('--jsattack',action='store_true',help='run JSAttack static analysis on the scoped URL artifact');h.add_argument('--service-correlation',action='store_true',help='run scoped Naabu/Nmap version correlation and local catalog searches');h.add_argument('--nmap-vuln',action='store_true',help='run non-intrusive Nmap vulnerability scripts on observed open ports');h.add_argument('-v','--verbose',action='store_true',help='show subprocess outcomes and artifact paths');h.add_argument('--dry-run',action='store_true');h.add_argument('--quiet',action='store_true')
  s.add_parser('presets');d=s.add_parser('doctor');d.add_argument('--json',action='store_true');d.add_argument('--strict',action='store_true',help='exit nonzero if a core tool is unavailable');i=s.add_parser('init');i.add_argument('path',nargs='?',default='rifthound.yml');i.add_argument('--preset',choices=sorted(PRESETS),default='balanced');pk=s.add_parser('packs');pk.add_argument('name',nargs='?',default='ALL');st=s.add_parser('steps');st.add_argument('--json',action='store_true');v=s.add_parser('variants');v.add_argument('family',choices=sorted(FAMILIES));v.add_argument('value',nargs='?',default='');v.add_argument('--json',action='store_true');return p
 
 def main(argv=None):
- argv=list(sys.argv[1:] if argv is None else argv);commands={'hunt','presets','doctor','init','packs','steps','variants','--help','-h','--version'}
+ argv=list(sys.argv[1:] if argv is None else argv);commands={'hunt','full','presets','doctor','init','packs','steps','variants','--help','-h','--version'}
+ if argv and argv[0]=='full':argv=['hunt',*argv[1:],*FULL_HUNT_FLAGS]
  if argv and argv[0] not in commands and not argv[0].startswith('-'):argv=['hunt']+argv
  if not argv:argv=['--help']
  ns=parser().parse_args(argv)

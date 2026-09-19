@@ -5,6 +5,7 @@ from rifthound.evidence import parse_gf_leads, parse_jsattack, parse_arjun
 from rifthound.core_engine import Engine
 from rifthound.reporting import write_html
 from rifthound.reconner import import_artifacts
+from rifthound import cli
 
 
 def test_httpx_collision_is_not_ready(monkeypatch):
@@ -170,3 +171,28 @@ def test_reconner_import_filters_and_tracks_sources(tmp_path):
     imported=import_artifacts(tmp_path,['example.com'])
     assert imported['sources']=={'katana':1,'js-endpoints':1}
     assert imported['urls']==['https://app.example.com/a','https://api.example.com/v1']
+
+
+def test_full_command_enables_complete_authorized_profile(monkeypatch, tmp_path):
+    captured={}
+
+    class StubPipeline:
+        def __init__(self, config, _ui, dry_run):
+            captured['config']=config
+            captured['dry_run']=dry_run
+        def run(self, phases, seeds, ai):
+            captured.update(phases=phases,seeds=seeds,ai=ai)
+
+    monkeypatch.setattr(cli, 'Pipeline', StubPipeline)
+    assert cli.main(['full','example.com','--dry-run','--quiet','-o',str(tmp_path)]) == 0
+    cfg=captured['config']
+    assert captured['phases']==[1,2,3,4]
+    assert captured['dry_run'] is True
+    assert cfg['preset']=='full'
+    assert cfg['recon']['bbot']['enabled']
+    assert cfg['recon']['dnsx']['enabled']
+    assert cfg['recon']['waymore']['enabled']
+    assert cfg['recon']['arjun']['enabled']
+    assert cfg['recon']['jsattack']['enabled']
+    assert cfg['recon']['service_correlation']['enabled']
+    assert cfg['recon']['service_correlation']['nmap_vuln']
