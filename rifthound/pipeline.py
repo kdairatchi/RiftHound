@@ -107,15 +107,18 @@ class Pipeline:
  def phase2(self):
   self.ui.phase(2,'Discovery','gf/Arjun/kxss/Gxss + native DOM/postMessage/client analysis')
   parameterized=[u for u in self.urls if '?' in u and '=' in u];self.write_lines(self.art/'parameterized.txt',parameterized)
+  gf_hits={}
   if which_tool('gf') and self.urls:
    d=self.art/'gf';d.mkdir(exist_ok=True)
    for fam in ['xss','sqli','ssrf','lfi','redirect','idor','ssti']:
     rc,so,_=self.run_cmd('gf-'+fam,[which_tool('gf'),fam],stdin='\n'.join(self.urls)+'\n');
-    if rc in (0,1):self.write_lines(d/(fam+'.txt'),so.splitlines())
-  if which_tool('kxss') and parameterized:
-   _,so,_=self.run_cmd('kxss',[which_tool('kxss')],stdin='\n'.join(parameterized)+'\n');(self.art/'kxss.txt').write_text(so)
-  if which_tool('gxss') and parameterized:
-   self.ui.warn('Gxss is legacy/archived; corroborator only');_,so,_=self.run_cmd('gxss',[which_tool('gxss'),'-p','RIFTHOUND','-c','20'],stdin='\n'.join(parameterized)+'\n');(self.art/'gxss.txt').write_text(so)
+    if rc in (0,1):gf_hits[fam]=self.write_lines(d/(fam+'.txt'),so.splitlines())
+   (d/'manifest.json').write_text(json.dumps({'patterns':sorted(gf_hits),'counts':{name:len(rows) for name,rows in gf_hits.items()}},indent=2)+'\n')
+  xss_inputs=self.write_lines(self.art/'xss-candidates.txt',parameterized+gf_hits.get('xss',[]))
+  if which_tool('kxss') and xss_inputs:
+   _,so,_=self.run_cmd('kxss',[which_tool('kxss')],stdin='\n'.join(xss_inputs)+'\n');(self.art/'kxss.txt').write_text(so)
+  if which_tool('gxss') and xss_inputs:
+   self.ui.warn('Gxss is legacy/archived; corroborator only');_,so,_=self.run_cmd('gxss',[which_tool('gxss'),'-p','RIFTHOUND','-c','20'],stdin='\n'.join(xss_inputs)+'\n');(self.art/'gxss.txt').write_text(so)
   if which_tool('fallparams') and self.urls:
    # FallParams enriches the local parameter corpus.  It receives the already
    # scope-filtered URL list and does not enable its own crawl/headless modes.
@@ -167,7 +170,7 @@ class Pipeline:
   if preset in {'server','deep','full'}:mods|={'sqli','ssti','crlf'}
   self.native('validation',mods)
   if self.cfg['recon'].get('service_correlation',{}).get('enabled'):self.service_correlation()
-  param=self.art/'parameterized.txt'
+  param=self.art/'xss-candidates.txt'
   if which_tool('dalfox') and param.exists() and param.stat().st_size:
    self.run_cmd('dalfox',[which_tool('dalfox'),'scan',str(param),'--format','jsonl','--output',str(self.art/'dalfox.jsonl')],timeout=3600)
   if which_tool('nuclei'):

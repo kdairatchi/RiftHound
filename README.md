@@ -80,6 +80,10 @@ rifthound example.com --arjun
 
 DNSX resolves the discovered host list. Waymore collects historical URLs and filters them through scope before use. Arjun performs active parameter discovery, so enable it only where that request volume is allowed. URO is used automatically for local URL reduction when its executable is healthy.
 
+## GF pattern triage
+
+GF runs the installed `xss`, `sqli`, `ssrf`, `lfi`, `redirect`, `idor`, and `ssti` patterns against the scoped URL corpus. Its output is saved in `artifacts/gf/`, along with `manifest.json` showing which patterns ran and how many URLs each selected. The XSS candidate list is then used by KXSS, Gxss, and Dalfox; a GF match is still only a prioritization signal, never a finding.
+
 ## Service versions and CVE research
 
 For an explicitly authorized scope, opt into a bounded service pass:

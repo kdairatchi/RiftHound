@@ -104,3 +104,19 @@ def test_phase_two_wires_jsattack_to_scoped_urls(monkeypatch, tmp_path):
     calls=[];monkeypatch.setattr(pipeline,'run_cmd',lambda name,cmd,**_:calls.append((name,cmd)) or (0,'',''));monkeypatch.setattr(pipeline,'native',lambda *_:None)
     pipeline.phase2()
     assert next(cmd for name,cmd in calls if name=='jsattack')==['/usr/bin/jsattack','analyze','--list',str(pipeline.art/'urls.txt'),'--depth','0','--out',str(pipeline.art/'jsattack'),'--threads','3','--rate','2','--timeout','15','--silent']
+
+
+def test_gf_xss_candidates_feed_kxss(monkeypatch, tmp_path):
+    class QuietUI:
+        def phase(self, *_): pass
+        def warn(self, *_): pass
+
+    cfg={'project': {'output_dir': str(tmp_path)}, 'scope': {'roots': ['example.com'], 'include_hosts': [], 'exclude_hosts': [], 'exclude_regex': []}, 'http': {'headers': [], 'proxy': '', 'timeout': 1, 'threads': 1, 'rps': 1, 'verify_tls': False}}
+    pipeline=Pipeline(cfg, QuietUI(), dry_run=True);pipeline.urls=['https://app.example.com/a?q=one'];pipeline.write_lines(pipeline.art/'urls.txt',pipeline.urls)
+    monkeypatch.setattr('rifthound.pipeline.which_tool',lambda name:'/usr/bin/'+name if name in {'gf','kxss'} else None)
+    calls=[]
+    def run(name,cmd,stdin=None,**_):
+        calls.append((name,stdin));return (0,'https://app.example.com/x?query=one\n','') if name=='gf-xss' else (0,'','')
+    monkeypatch.setattr(pipeline,'run_cmd',run);monkeypatch.setattr(pipeline,'native',lambda *_:None)
+    pipeline.phase2()
+    assert next(stdin for name,stdin in calls if name=='kxss')=='https://app.example.com/a?q=one\nhttps://app.example.com/x?query=one\n'
