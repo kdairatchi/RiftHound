@@ -3,6 +3,7 @@ from rifthound.pipeline import Pipeline
 from rifthound.correlation import nmap_services, nmap_vulnerability_candidates, metasploit_query, searchsploit_results
 from rifthound.evidence import parse_gf_leads, parse_jsattack, parse_arjun
 from rifthound.core_engine import Engine
+from rifthound.reporting import write_html
 
 
 def test_httpx_collision_is_not_ready(monkeypatch):
@@ -150,3 +151,13 @@ def test_engine_uses_a_session_per_worker():
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
         sessions=list(pool.map(session_id,range(2)))
     assert len(set(sessions))==2
+
+
+def test_visual_report_has_filters_gates_and_artifacts(tmp_path):
+    output=tmp_path/'report.html'
+    write_html(output,{'urls':1,'preset':'balanced','author':'tester'},[{'confidence_score':42,'status':'lead','family':'CMDI','url':'https://app.example.com/run','tools':['gf'],'evidence_gate':['Confirm a harmless control'],'negative_controls':['Fresh baseline']}],[])
+    page=output.read_text()
+    assert 'Copy handoff' in page
+    assert 'Evidence gates' in page
+    assert 'evidence-ledger.json' in page
+    assert 'data-family="CMDI"' in page
