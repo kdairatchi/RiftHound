@@ -15,6 +15,61 @@ ALIASES={'gxss':['Gxss','gxss'],'httpx':['httpx']}
 CORE=['subfinder','amass','httpx','katana','gau','waymore','uro','gf','kxss','gxss','dalfox','arjun','fallparams','nuclei','rg','curl','jq']
 OPTIONAL=['dnsx','naabu','nmap','searchsploit','msfconsole','jsattack','ffuf','anew','unfurl','interactsh-client','bbot']
 
+# Only include tools with a maintained, deterministic upstream install route.
+# OS-packaged tools are intentionally excluded: changing apt/brew packages from
+# a scan orchestrator is surprising and can affect unrelated software.
+TOOL_RECIPES={
+ 'subfinder':['go','install','github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest'],
+ 'httpx':['go','install','github.com/projectdiscovery/httpx/cmd/httpx@latest'],
+ 'katana':['go','install','github.com/projectdiscovery/katana/cmd/katana@latest'],
+ 'gau':['go','install','github.com/lc/gau/v2/cmd/gau@latest'],
+ 'gf':['go','install','github.com/tomnomnom/gf@latest'],
+ 'dalfox':['go','install','github.com/hahwul/dalfox/v2@latest'],
+ 'fallparams':['go','install','github.com/ImAyrix/fallparams@latest'],
+ 'nuclei':['go','install','github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest'],
+ 'dnsx':['go','install','github.com/projectdiscovery/dnsx/cmd/dnsx@latest'],
+ 'naabu':['go','install','github.com/projectdiscovery/naabu/v2/cmd/naabu@latest'],
+ 'ffuf':['go','install','github.com/ffuf/ffuf/v2@latest'],
+ 'anew':['go','install','github.com/tomnomnom/anew@latest'],
+ 'unfurl':['go','install','github.com/tomnomnom/unfurl@latest'],
+ 'interactsh-client':['go','install','github.com/projectdiscovery/interactsh/cmd/interactsh-client@latest'],
+ 'arjun':['pipx','install','arjun'],
+ 'uro':['pipx','install','uro'],
+ 'bbot':['pipx','install','bbot'],
+}
+
+def managed_tool_names():
+    return sorted(TOOL_RECIPES)
+
+def manage_tools(action:str,names:list[str]|None=None,all_tools:bool=False,apply:bool=False):
+    """Plan or apply managed Go/pipx tool installs without invoking a shell."""
+    if action not in {'install','update'}: raise ValueError('action must be install or update')
+    selected=managed_tool_names() if all_tools else list(dict.fromkeys(names or []))
+    unknown=sorted(set(selected)-set(TOOL_RECIPES))
+    if unknown: raise ValueError('unsupported managed tool: '+', '.join(unknown))
+    if not selected: raise ValueError('choose one or more tools, or use --all')
+    rows=[]
+    for name in selected:
+        info=inspect_tool(name)
+        if action=='install' and info.ready:
+            rows.append({'name':name,'status':'skipped','reason':'already ready; use update to refresh it','command':TOOL_RECIPES[name]})
+            continue
+        if action=='update' and not info.ready:
+            rows.append({'name':name,'status':'skipped','reason':'not ready; use install first','command':TOOL_RECIPES[name]})
+            continue
+        command=list(TOOL_RECIPES[name])
+        # pipx separates first installation from upgrade, unlike Go where the
+        # same ``go install ...@latest`` command covers both cases.
+        if action=='update' and command[:2]==['pipx','install']:
+            command=['pipx','upgrade',command[2]]
+        if not apply:
+            rows.append({'name':name,'status':'planned','reason':'add --yes to execute','command':command})
+            continue
+        rc,stdout,stderr=run_capture(command,timeout=1200)
+        refreshed=inspect_tool(name)
+        rows.append({'name':name,'status':'updated' if rc==0 and refreshed.ready else 'failed','returncode':rc,'ready':refreshed.ready,'command':command,'output':(stdout or stderr)[-1000:]})
+    return {'action':action,'applied':apply,'results':rows}
+
 def which_tool(name:str):
     for x in ALIASES.get(name,[name]):
         p=shutil.which(x)

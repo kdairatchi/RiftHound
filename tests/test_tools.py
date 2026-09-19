@@ -196,3 +196,18 @@ def test_full_command_enables_complete_authorized_profile(monkeypatch, tmp_path)
     assert cfg['recon']['jsattack']['enabled']
     assert cfg['recon']['service_correlation']['enabled']
     assert cfg['recon']['service_correlation']['nmap_vuln']
+
+
+def test_tool_manager_plans_and_skips_without_changing_environment(monkeypatch):
+    monkeypatch.setattr(tools, 'inspect_tool', lambda name: tools.ToolInfo(name, None, False))
+    plan=tools.manage_tools('install',['fallparams'],apply=False)
+    assert plan['results'][0]['status']=='planned'
+    assert plan['results'][0]['command']==['go','install','github.com/ImAyrix/fallparams@latest']
+    with __import__('pytest').raises(ValueError,match='unsupported'):
+        tools.manage_tools('install',['nmap'])
+
+
+def test_tool_manager_uses_pipx_upgrade_for_managed_python_tools(monkeypatch):
+    monkeypatch.setattr(tools, 'inspect_tool', lambda name: tools.ToolInfo(name, '/bin/uro', True))
+    plan=tools.manage_tools('update',['uro'])
+    assert plan['results'][0]['command']==['pipx','upgrade','uro']

@@ -63,6 +63,18 @@ RiftHound detects and uses tools when installed:
 
 `subfinder`, `amass`, ProjectDiscovery `httpx`, `katana`, `gau`, `waymore`, `uro`, `gf`, `kxss`, `Gxss`, `dalfox`, `arjun`, `fallparams`, `nuclei`, `rg`, `curl`, `jq`.
 
+## Managed installs and updates
+
+See a safe plan first (the default makes no environment changes), then add `--yes` to apply it:
+
+```bash
+rifthound tools install fallparams
+rifthound tools install fallparams --yes
+rifthound tools update --all --yes
+```
+
+RiftHound manages its supported Go and pipx tools using structured commands, then verifies each tool after an update. It intentionally does not update system-managed packages such as Nmap, Searchsploit, Metasploit, `curl`, or `jq`; use your OS package manager for those. Use `rifthound tools install --all` to view the complete managed set.
+
 BBOT is an optional, opt-in recon adapter. It runs only the `subdomain-enum` preset with BBOT's `passive` module requirement and consumes only in-scope JSON results:
 
 ```bash

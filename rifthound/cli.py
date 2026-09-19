@@ -5,7 +5,7 @@ from urllib.parse import urlparse
 from . import __version__
 from .config import build_config,dump_default,merge
 from .presets import PRESETS
-from .tools import doctor
+from .tools import doctor,manage_tools,managed_tool_names
 from .terminal import UI
 from .pipeline import Pipeline
 from .scope import normalize_url
@@ -21,10 +21,10 @@ FULL_HUNT_FLAGS=['-p','full','--all','--bbot','--dnsx','--waymore','--arjun','--
 def parser():
  p=argparse.ArgumentParser(prog='rifthound',description='RiftHound — evidence-gated bug-bounty hunting framework by kdairatchi');p.add_argument('--version',action='version',version=f'RiftHound {__version__}');s=p.add_subparsers(dest='cmd')
  h=s.add_parser('hunt');h.add_argument('targets',nargs='*');h.add_argument('-d','--domain',action='append',default=[]);h.add_argument('-l','--urls');h.add_argument('--reconner-output',help='import scoped URLs from a Reconner output directory');h.add_argument('-p','--preset',choices=sorted(PRESETS),default='balanced');h.add_argument('-c','--config');h.add_argument('-o','--out');h.add_argument('--phase',action='append',type=int,choices=[1,2,3,4]);h.add_argument('--all',action='store_true');h.add_argument('--ai',action='store_true');h.add_argument('--ai-prompt',action='append',default=[]);h.add_argument('--oast');h.add_argument('--proxy');h.add_argument('-H','--header',action='append',default=[]);h.add_argument('-t','--threads',type=int);h.add_argument('--rps',type=float);h.add_argument('--quorum',type=int);h.add_argument('--exclude-host',action='append',default=[]);h.add_argument('--exclude-regex',action='append',default=[]);h.add_argument('--recon-depth',type=int);h.add_argument('--max-urls',type=int);h.add_argument('--dnsx',action='store_true',help='resolve discovered subdomains with DNSX');h.add_argument('--waymore',action='store_true',help='collect historical URLs with Waymore');h.add_argument('--arjun',action='store_true',help='run opt-in Arjun parameter discovery');h.add_argument('--bbot',action='store_true',help='enable BBOT passive subdomain enumeration');h.add_argument('--jsattack',action='store_true',help='run JSAttack static analysis on the scoped URL artifact');h.add_argument('--service-correlation',action='store_true',help='run scoped Naabu/Nmap version correlation and local catalog searches');h.add_argument('--nmap-vuln',action='store_true',help='run non-intrusive Nmap vulnerability scripts on observed open ports');h.add_argument('-v','--verbose',action='store_true',help='show subprocess outcomes and artifact paths');h.add_argument('--dry-run',action='store_true');h.add_argument('--quiet',action='store_true')
- s.add_parser('presets');d=s.add_parser('doctor');d.add_argument('--json',action='store_true');d.add_argument('--strict',action='store_true',help='exit nonzero if a core tool is unavailable');i=s.add_parser('init');i.add_argument('path',nargs='?',default='rifthound.yml');i.add_argument('--preset',choices=sorted(PRESETS),default='balanced');pk=s.add_parser('packs');pk.add_argument('name',nargs='?',default='ALL');st=s.add_parser('steps');st.add_argument('--json',action='store_true');v=s.add_parser('variants');v.add_argument('family',choices=sorted(FAMILIES));v.add_argument('value',nargs='?',default='');v.add_argument('--json',action='store_true');return p
+ s.add_parser('presets');d=s.add_parser('doctor');d.add_argument('--json',action='store_true');d.add_argument('--strict',action='store_true',help='exit nonzero if a core tool is unavailable');tm=s.add_parser('tools',help='plan or apply managed tool installs and updates');tm.add_argument('action',choices=['install','update']);tm.add_argument('names',nargs='*',metavar='TOOL');tm.add_argument('--all',action='store_true',help='select every supported managed tool');tm.add_argument('--yes',action='store_true',help='apply changes (otherwise prints a plan)');tm.add_argument('--json',action='store_true');i=s.add_parser('init');i.add_argument('path',nargs='?',default='rifthound.yml');i.add_argument('--preset',choices=sorted(PRESETS),default='balanced');pk=s.add_parser('packs');pk.add_argument('name',nargs='?',default='ALL');st=s.add_parser('steps');st.add_argument('--json',action='store_true');v=s.add_parser('variants');v.add_argument('family',choices=sorted(FAMILIES));v.add_argument('value',nargs='?',default='');v.add_argument('--json',action='store_true');return p
 
 def main(argv=None):
- argv=list(sys.argv[1:] if argv is None else argv);commands={'hunt','full','presets','doctor','init','packs','steps','variants','--help','-h','--version'}
+ argv=list(sys.argv[1:] if argv is None else argv);commands={'hunt','full','presets','doctor','tools','init','packs','steps','variants','--help','-h','--version'}
  if argv and argv[0]=='full':argv=['hunt',*argv[1:],*FULL_HUNT_FLAGS]
  if argv and argv[0] not in commands and not argv[0].startswith('-'):argv=['hunt']+argv
  if not argv:argv=['--help']
@@ -34,6 +34,13 @@ def main(argv=None):
   return 0
  if ns.cmd=='doctor':
   r=doctor();print(json.dumps(r,indent=2) if ns.json else '\n'.join(f"{n:18} {'READY' if x['ready'] else 'missing/not-ready'} {x.get('note','')}" for n,x in r['tools'].items()));return int(ns.strict and not r['healthy'])
+ if ns.cmd=='tools':
+  try:r=manage_tools(ns.action,ns.names,ns.all,ns.yes)
+  except ValueError as e:print(f'error: {e}',file=sys.stderr);print('supported:',', '.join(managed_tool_names()),file=sys.stderr);return 2
+  if ns.json:print(json.dumps(r,indent=2))
+  else:
+   for x in r['results']:print(f"{x['name']:18} {x['status']:8} {x.get('reason','')}\n  {' '.join(x['command'])}")
+  return int(any(x['status']=='failed' for x in r['results']))
  if ns.cmd=='init':dump_default(ns.path,ns.preset);print('[+] wrote',ns.path);return 0
  if ns.cmd=='packs':
   if ns.name.upper()=='ALL':
