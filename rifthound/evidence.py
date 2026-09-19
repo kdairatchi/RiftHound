@@ -40,6 +40,16 @@ def parse_nuclei(path):
   url=o.get('matched-at') or o.get('host') or o.get('url') or '';info=o.get('info') or {};name=info.get('name') or o.get('template-id','nuclei');low=(name+' '+o.get('template-id','')).lower();fam='XSS' if 'xss' in low else 'CORS' if 'cors' in low else 'SSRF' if 'ssrf' in low else 'OTHER'
   if url:out.append({'family':fam,'url':url,'parameter':'','confidence':'strong-candidate','tools':['nuclei'],'score':42,'evidence_gate':['Reproduce matcher manually or with independent deterministic request'],'negative_controls':['confirm not generic block/echo page']})
  return out
+def parse_gf_leads(directory):
+ """Turn GF URL selections into low-confidence, evidence-gated research leads."""
+ families={'xss':'XSS','sqli':'SQLI','ssrf':'SSRF','lfi':'LFI','redirect':'REDIRECT','idor':'API-AUTH','ssti':'SSTI','cmdi':'CMDI','rce':'CMDI','upload':'UPLOAD','graphql':'GRAPHQL','oauth':'OAUTH','jwt':'AUTH','prototype-pollution':'CLIENT','web-cache':'CACHE','cors':'CORS','xxe':'XXE','smuggling':'DESYNC'}
+ out=[]
+ for pattern,family in families.items():
+  path=Path(directory)/(pattern+'.txt')
+  if not path.exists():continue
+  for url in path.read_text(errors='replace').splitlines():
+   if url.startswith(('http://','https://')):out.append({'family':family,'title':f'GF {pattern} route candidate','url':url,'parameter':'','confidence':'candidate','tools':['gf'],'score':17,'evidence_gate':['Confirm the selected parameter reaches the relevant server-side or client-side sink','Use a harmless, family-specific control; do not claim impact from pattern selection alone'],'negative_controls':['nearby unrelated parameter','stable baseline','fresh session where applicable']})
+ return out
 def aggregate(rows,quorum=2):
  groups=defaultdict(list)
  for r in rows:groups[_key(r)].append(r)

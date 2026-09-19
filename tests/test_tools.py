@@ -1,6 +1,7 @@
 from rifthound import tools
 from rifthound.pipeline import Pipeline
 from rifthound.correlation import nmap_services, nmap_vulnerability_candidates, metasploit_query, searchsploit_results
+from rifthound.evidence import parse_gf_leads
 
 
 def test_httpx_collision_is_not_ready(monkeypatch):
@@ -120,3 +121,11 @@ def test_gf_xss_candidates_feed_kxss(monkeypatch, tmp_path):
     monkeypatch.setattr(pipeline,'run_cmd',run);monkeypatch.setattr(pipeline,'native',lambda *_:None)
     pipeline.phase2()
     assert next(stdin for name,stdin in calls if name=='kxss')=='https://app.example.com/a?q=one\nhttps://app.example.com/x?query=one\n'
+
+
+def test_gf_command_injection_routes_are_leads_only(tmp_path):
+    (tmp_path/'cmdi.txt').write_text('https://app.example.com/run?command=echo\n')
+    lead=parse_gf_leads(tmp_path)[0]
+    assert lead['family']=='CMDI'
+    assert lead['confidence']=='candidate'
+    assert lead['tools']==['gf']

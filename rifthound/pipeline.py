@@ -6,7 +6,7 @@ from .tools import which_tool, run_capture, inspect_tool
 from .scope import normalize_url,url_in_scope,host_in_roots,normalize_host
 from .fingerprints import scan_urls,consume_httpx_jsonl
 from .core_engine import Engine
-from .evidence import read_jsonl,parse_kxss,parse_gxss,parse_dalfox,parse_nuclei,aggregate
+from .evidence import read_jsonl,parse_kxss,parse_gxss,parse_dalfox,parse_nuclei,parse_gf_leads,aggregate
 from .chains import generate
 from .reporting import write_html,write_markdown
 from .ai_prompts import PROMPTS
@@ -110,7 +110,7 @@ class Pipeline:
   gf_hits={}
   if which_tool('gf') and self.urls:
    d=self.art/'gf';d.mkdir(exist_ok=True)
-   for fam in ['xss','sqli','ssrf','lfi','redirect','idor','ssti']:
+   for fam in ['xss','sqli','ssrf','lfi','redirect','idor','ssti','cmdi','rce','upload','graphql','oauth','jwt','prototype-pollution','web-cache','cors','xxe','smuggling']:
     rc,so,_=self.run_cmd('gf-'+fam,[which_tool('gf'),fam],stdin='\n'.join(self.urls)+'\n');
     if rc in (0,1):gf_hits[fam]=self.write_lines(d/(fam+'.txt'),so.splitlines())
    (d/'manifest.json').write_text(json.dumps({'patterns':sorted(gf_hits),'counts':{name:len(rows) for name,rows in gf_hits.items()}},indent=2)+'\n')
@@ -186,7 +186,7 @@ class Pipeline:
   for p in [self.art/'core-discovery.jsonl',self.art/'core-validation.jsonl']:rows+=read_jsonl(p)
   if (self.art/'kxss.txt').exists():rows+=parse_kxss((self.art/'kxss.txt').read_text())
   if (self.art/'gxss.txt').exists():rows+=parse_gxss((self.art/'gxss.txt').read_text())
-  rows+=parse_dalfox(self.art/'dalfox.jsonl');rows+=parse_nuclei(self.art/'nuclei.jsonl')
+  rows+=parse_gf_leads(self.art/'gf');rows+=parse_dalfox(self.art/'dalfox.jsonl');rows+=parse_nuclei(self.art/'nuclei.jsonl')
   ranked=aggregate(rows,int(self.cfg['validation'].get('cross_tool_quorum',2)));(self.out/'evidence-ledger.json').write_text(json.dumps(ranked,indent=2)+'\n')
   fps={}
   for p in [self.art/'fingerprints-passive.json',self.art/'fingerprints-discovery.json',self.art/'fingerprints-validation.json']:

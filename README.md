@@ -82,7 +82,7 @@ DNSX resolves the discovered host list. Waymore collects historical URLs and fil
 
 ## GF pattern triage
 
-GF runs the installed `xss`, `sqli`, `ssrf`, `lfi`, `redirect`, `idor`, and `ssti` patterns against the scoped URL corpus. Its output is saved in `artifacts/gf/`, along with `manifest.json` showing which patterns ran and how many URLs each selected. The XSS candidate list is then used by KXSS, Gxss, and Dalfox; a GF match is still only a prioritization signal, never a finding.
+GF runs curated client, server, API, and cache patterns against the scoped URL corpus: XSS, SQLi, SSRF, LFI, redirects, IDOR, SSTI, command-injection/RCE routes, uploads, GraphQL, OAuth/JWT, prototype pollution, cache, CORS, XXE, and desync routes. Its output is saved in `artifacts/gf/`, along with `manifest.json` showing which patterns ran and how many URLs each selected. The XSS candidate list is then used by KXSS, Gxss, and Dalfox. Other selections become low-confidence, family-tagged evidence leads with explicit manual validation gates. A GF match is never a finding, and RiftHound does not automatically send command-injection payloads.
 
 ## Service versions and CVE research
 
