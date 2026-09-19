@@ -2,6 +2,7 @@ from rifthound import tools
 from rifthound.pipeline import Pipeline
 from rifthound.correlation import nmap_services, nmap_vulnerability_candidates, metasploit_query, searchsploit_results
 from rifthound.evidence import parse_gf_leads, parse_jsattack, parse_arjun
+from rifthound.core_engine import Engine
 
 
 def test_httpx_collision_is_not_ready(monkeypatch):
@@ -137,3 +138,15 @@ def test_jsattack_and_arjun_import_safe_leads(tmp_path):
     js_rows=parse_jsattack(js)
     assert len(js_rows)==2 and all('value' not in row for row in js_rows)
     assert parse_arjun(arjun)[0]['parameter']=='query'
+
+
+def test_engine_uses_a_session_per_worker():
+    engine=Engine([],threads=2,rps=0)
+    import concurrent.futures, threading
+    barrier=threading.Barrier(2)
+    def session_id(_):
+        barrier.wait()
+        return id(engine.session())
+    with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+        sessions=list(pool.map(session_id,range(2)))
+    assert len(set(sessions))==2

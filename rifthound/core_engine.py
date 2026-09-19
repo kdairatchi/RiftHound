@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, concurrent.futures, hashlib, json, os, random, re, string, time
+import argparse, concurrent.futures, hashlib, json, os, random, re, string, threading, time
 from pathlib import Path
 from urllib.parse import urlparse, parse_qsl, urlencode, urlunparse, quote
 import requests, urllib3
@@ -28,16 +28,20 @@ URL_PARAMS=re.compile(r'(url|uri|redirect|return|next|callback|webhook|image|ava
 class Engine:
     def __init__(self,urls,headers=None,proxy='',timeout=15,threads=5,rps=6,verify=False,redact=True):
         self.urls=list(dict.fromkeys(urls));self.headers=headers or {};self.timeout=timeout;self.threads=max(1,threads);self.rps=float(rps or 0);self.verify=verify;self.redact=redact
-        self.proxies={'http':proxy,'https':proxy} if proxy else None;self.session=requests.Session();self.findings=[];self.inventory=scan_urls(self.urls);self._last=0.0
+        self.proxies={'http':proxy,'https':proxy} if proxy else None;self._local=threading.local();self._rate_lock=threading.Lock();self._findings_lock=threading.Lock();self.findings=[];self.inventory=scan_urls(self.urls);self._last=0.0
+    def session(self):
+        if not hasattr(self._local,'session'):self._local.session=requests.Session()
+        return self._local.session
     def _rate(self):
         if self.rps<=0:return
-        gap=1.0/self.rps;now=time.monotonic();wait=gap-(now-self._last)
-        if wait>0:time.sleep(wait)
-        self._last=time.monotonic()
+        with self._rate_lock:
+            gap=1.0/self.rps;now=time.monotonic();wait=gap-(now-self._last)
+            if wait>0:time.sleep(wait)
+            self._last=time.monotonic()
     def request(self,url,method='GET',headers=None,data=None,allow_redirects=True):
         self._rate();h={'User-Agent':'Mozilla/5.0 RiftHound/3.0'};h.update(self.headers);h.update(headers or {})
         try:
-            r=self.session.request(method,url,headers=h,data=data,timeout=self.timeout,verify=self.verify,proxies=self.proxies,allow_redirects=allow_redirects)
+            r=self.session().request(method,url,headers=h,data=data,timeout=self.timeout,verify=self.verify,proxies=self.proxies,allow_redirects=allow_redirects)
             return r
         except requests.RequestException:return None
     def canary(self,prefix='RH'):return prefix+''.join(random.choice(string.ascii_letters+string.digits) for _ in range(12))
@@ -48,7 +52,7 @@ class Engine:
         if f.score>=80 and not f.false_positive_flags:f.report_state='report-candidate'
         elif f.score>=55:f.report_state='needs-validation'
         else:f.report_state='lead-only'
-        self.findings.append(f.to_dict())
+        with self._findings_lock:self.findings.append(f.to_dict())
     def baseline(self,url):
         rs=[self.request(url) for _ in range(2)];rs=[r for r in rs if r]
         if len(rs)<2:return {'stable':False,'statuses':[]}
