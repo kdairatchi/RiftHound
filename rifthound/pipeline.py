@@ -11,6 +11,7 @@ from .chains import generate
 from .reporting import write_html,write_markdown
 from .ai_prompts import PROMPTS
 from .correlation import nmap_services,nmap_vulnerability_candidates,searchsploit_results,metasploit_query
+from .reconner import import_artifacts
 
 class Pipeline:
  def __init__(self,cfg,ui,dry_run=False):
@@ -53,6 +54,9 @@ class Pipeline:
  def phase1(self,seeds):
   self.ui.phase(1,'Recon & Surface Inventory','subfinder/amass/httpx/katana/gau + scope normalization')
   domains=set(self.roots)
+  recon=self.cfg.get('recon',{})
+  if recon.get('reconner_output'):
+   imported=import_artifacts(recon['reconner_output'],self.roots,self.cfg.get('scope',{}));self.urls.extend(imported['urls']);(self.art/'reconner-import.json').write_text(json.dumps(imported,indent=2)+'\n');self.ui.ok(f'Reconner import: {len(imported["urls"])} scoped URLs')
   for u in seeds:
    n=normalize_url(u)
    if n and self.allowed(n):self.urls.append(n);domains.add(urlparse(n).hostname or '')
@@ -74,7 +78,6 @@ class Pipeline:
   elif bbot_cfg.get('enabled'):
    self.ui.warn('BBOT requested but not ready; run rifthound doctor for repair guidance')
   self.subdomains=sorted({normalize_host(d) for d in domains if normalize_host(d) and (not self.roots or host_in_roots(d,self.roots))});self.write_lines(self.art/'subdomains.txt',self.subdomains)
-  recon=self.cfg.get('recon',{})
   if recon.get('dnsx',{}).get('enabled') and which_tool('dnsx') and self.subdomains:
    self.run_cmd('dnsx',[which_tool('dnsx'),'-l',str(self.art/'subdomains.txt'),'-a','-json','-silent','-duc','-o',str(self.art/'dnsx.jsonl')],timeout=1800)
   live=[];hi=inspect_tool('httpx')

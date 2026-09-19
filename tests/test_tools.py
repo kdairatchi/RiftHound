@@ -4,6 +4,7 @@ from rifthound.correlation import nmap_services, nmap_vulnerability_candidates, 
 from rifthound.evidence import parse_gf_leads, parse_jsattack, parse_arjun
 from rifthound.core_engine import Engine
 from rifthound.reporting import write_html
+from rifthound.reconner import import_artifacts
 
 
 def test_httpx_collision_is_not_ready(monkeypatch):
@@ -161,3 +162,11 @@ def test_visual_report_has_filters_gates_and_artifacts(tmp_path):
     assert 'Evidence gates' in page
     assert 'evidence-ledger.json' in page
     assert 'data-family="CMDI"' in page
+
+
+def test_reconner_import_filters_and_tracks_sources(tmp_path):
+    (tmp_path/'katana.txt').write_text('https://app.example.com/a\nhttps://evil.invalid/x\n')
+    (tmp_path/'js_endpoints.txt').write_text('https://api.example.com/v1\nhttps://api.example.com/'+"'"+'bad\n')
+    imported=import_artifacts(tmp_path,['example.com'])
+    assert imported['sources']=={'katana':1,'js-endpoints':1}
+    assert imported['urls']==['https://app.example.com/a','https://api.example.com/v1']

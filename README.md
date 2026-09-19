@@ -82,6 +82,16 @@ rifthound example.com --arjun
 
 DNSX resolves the discovered host list. Waymore collects historical URLs and filters them through scope before use. Arjun performs active parameter discovery, so enable it only where that request volume is allowed. URO is used automatically for local URL reduction when its executable is healthy.
 
+## Reconner handoff
+
+Import an existing Reconner target output into RiftHound's evidence-gated workflow:
+
+```bash
+rifthound zelle.com --reconner-output /home/anon/Reconner/output/zelle.com -p balanced
+```
+
+RiftHound imports only known recon artifacts (`katana`, `gau`, `wayback`, live URLs, JS endpoints, and parameters), applies its scope rules again, and records source counts in `artifacts/reconner-import.json`.
+
 ## GF pattern triage
 
 GF runs curated client, server, API, and cache patterns against the scoped URL corpus: XSS, SQLi, SSRF, LFI, redirects, IDOR, SSTI, command-injection/RCE routes, uploads, GraphQL, OAuth/JWT, prototype pollution, cache, CORS, XXE, and desync routes. Its output is saved in `artifacts/gf/`, along with `manifest.json` showing which patterns ran and how many URLs each selected. The XSS candidate list is then used by KXSS, Gxss, and Dalfox. Other selections become low-confidence, family-tagged evidence leads with explicit manual validation gates. A GF match is never a finding, and RiftHound does not automatically send command-injection payloads.
