@@ -12,7 +12,7 @@ BANNER=r''' ____  _  __ _   _   _                       _
 |  _ <| |  _| |_|  _  | (_) | |_| | | | | (_| |
 |_| \\_\\_|_|  \\__|_| |_|\\___/ \\__,_|_| |_|\\__,_|'''
 class UI:
-    def __init__(self,quiet=False):self.quiet=quiet;self.console=Console() if HAVE else None
+    def __init__(self,quiet=False,verbose=False):self.quiet=quiet;self.verbose=verbose and not quiet;self.console=Console() if HAVE else None
     def banner(self,v):
         if self.quiet:return
         msg=f'{BANNER}\nv{v} • author kdairatchi • recon → validate → correlate → chain'
@@ -23,6 +23,8 @@ class UI:
         if not self.quiet:(self.console.print(f'[green]✓[/green] {m}') if self.console else print('[+]',m))
     def warn(self,m):
         if not self.quiet:(self.console.print(f'[yellow]⚠[/yellow] {m}') if self.console else print('[!]',m))
+    def debug(self,m):
+        if self.verbose:(self.console.print(f'[dim]· {m}[/dim]') if self.console else print('[debug]',m))
     def phase(self,n,t,d=''):
         if self.quiet:return
         msg=f'PHASE {n}  {t}'+(f'\n{d}' if d else '')

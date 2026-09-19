@@ -91,3 +91,16 @@ def test_nmap_vulnerability_candidates_are_not_validated(tmp_path):
     candidate=nmap_vulnerability_candidates(report)[0]
     assert candidate['confidence']=='candidate'
     assert candidate['cves']==['CVE-2021-12345']
+
+
+def test_phase_two_wires_jsattack_to_scoped_urls(monkeypatch, tmp_path):
+    class QuietUI:
+        def phase(self, *_): pass
+        def warn(self, *_): pass
+
+    cfg={'project': {'output_dir': str(tmp_path)}, 'scope': {'roots': ['example.com'], 'include_hosts': [], 'exclude_hosts': [], 'exclude_regex': []}, 'recon': {'jsattack': {'enabled': True}}, 'http': {'headers': [], 'proxy': '', 'timeout': 15, 'threads': 3, 'rps': 2, 'verify_tls': False}}
+    pipeline=Pipeline(cfg, QuietUI(), dry_run=True);pipeline.urls=['https://app.example.com/app.js'];pipeline.write_lines(pipeline.art/'urls.txt',pipeline.urls)
+    monkeypatch.setattr('rifthound.pipeline.which_tool',lambda name:'/usr/bin/jsattack' if name=='jsattack' else None)
+    calls=[];monkeypatch.setattr(pipeline,'run_cmd',lambda name,cmd,**_:calls.append((name,cmd)) or (0,'',''));monkeypatch.setattr(pipeline,'native',lambda *_:None)
+    pipeline.phase2()
+    assert next(cmd for name,cmd in calls if name=='jsattack')==['/usr/bin/jsattack','analyze','--list',str(pipeline.art/'urls.txt'),'--depth','0','--out',str(pipeline.art/'jsattack'),'--threads','3','--rate','2','--timeout','15','--silent']

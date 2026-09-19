@@ -23,6 +23,7 @@ class Pipeline:
   self.ui.info(name+': '+' '.join(cmd))
   if self.dry:return 0,'',''
   rc,so,se=run_capture(cmd,stdin=stdin,timeout=timeout);(self.logs/(name+'.stdout.log')).write_text(so);(self.logs/(name+'.stderr.log')).write_text(se)
+  self.ui.debug(f'{name}: exit={rc}, stdout={len(so)}B, stderr={len(se)}B, logs={self.logs/(name+".stdout.log")}')
   if rc not in (0,1):self.ui.warn(f'{name} exited {rc}')
   return rc,so,se
  def write_lines(self,p,lines):
@@ -113,6 +114,9 @@ class Pipeline:
    # scope-filtered URL list and does not enable its own crawl/headless modes.
    output=self.art/'fallparams.txt'
    self.run_cmd('fallparams',[which_tool('fallparams'),'-u',str(self.art/'urls.txt'),'-o',str(output),'-silent','-duc'])
+  if self.cfg.get('recon',{}).get('jsattack',{}).get('enabled') and which_tool('jsattack') and self.urls:
+   output=self.art/'jsattack';cmd=[which_tool('jsattack'),'analyze','--list',str(self.art/'urls.txt'),'--depth','0','--out',str(output),'--threads',str(self.cfg['http'].get('threads',5)),'--rate',str(self.cfg['http'].get('rps',6)),'--timeout',str(self.cfg['http'].get('timeout',15)),'--silent']
+   self.run_cmd('jsattack',cmd,timeout=3600)
   self.native('discovery',{'reflection','dom','headers','oauth'})
  def native(self,name,mods):
   h={}

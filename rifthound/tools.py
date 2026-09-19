@@ -13,7 +13,7 @@ class ToolInfo:
 
 ALIASES={'gxss':['Gxss','gxss'],'httpx':['httpx']}
 CORE=['subfinder','amass','httpx','katana','gau','waymore','uro','gf','kxss','gxss','dalfox','arjun','fallparams','nuclei','rg','curl','jq']
-OPTIONAL=['dnsx','naabu','nmap','searchsploit','msfconsole','ffuf','anew','unfurl','interactsh-client','bbot']
+OPTIONAL=['dnsx','naabu','nmap','searchsploit','msfconsole','jsattack','ffuf','anew','unfurl','interactsh-client','bbot']
 
 def which_tool(name:str):
     for x in ALIASES.get(name,[name]):

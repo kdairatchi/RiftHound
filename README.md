@@ -59,6 +59,16 @@ BBOT is an optional, opt-in recon adapter. It runs only the `subdomain-enum` pre
 rifthound example.com --bbot
 ```
 
+## JavaScript analysis and verbose logs
+
+Use the installed JSAttack tool as an opt-in static-analysis pass over RiftHound's scoped URL list:
+
+```bash
+rifthound example.com --jsattack -p balanced
+```
+
+It runs `jsattack analyze` with crawl depth `0`; active JSAttack probes are not enabled. Add `--verbose` to any hunt to show each subprocess exit code, output sizes, and its saved log paths. `--quiet` remains available for script-friendly output.
+
 ## Service versions and CVE research
 
 For an explicitly authorized scope, opt into a bounded service pass:
