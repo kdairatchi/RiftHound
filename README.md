@@ -1,7 +1,6 @@
-# RiftHound v3
+# RiftHound
 
 **A practical, evidence-first companion for authorized bug-bounty research.** It gathers leads, keeps the supporting artifacts together, and makes it clear what still needs to be proven.  
-Author: **kdairatchi**
 
 RiftHound is an authorized-security research framework that connects recon tools, careful differential checks, browser/API fingerprints, external corroboration, false-positive gates, and chain hypotheses. A lead is never presented as a confirmed vulnerability just because a scanner recognized a pattern.
 
